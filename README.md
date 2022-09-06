@@ -2,9 +2,12 @@
 ------------
 Welcome to EmbeddedRL. This is a version of our RLBytes c++ libary for the embedded systems. <br/>
 
+![Alt text](/Images/e1.png?raw=true "P.I.P.E.R.")
+
 Enjoy Hierarchical, Curriculum, Model and Vanilla Reinforcement learning based on Proximal Policy Optimisation (PPO)
 This if for P.I.P.E.R Policy Iteraction, Policy Evaluvation Robot a segway style robot that learning to balance and follow a moving target though hieracical learning
 Note Piper uses stocastic policy gradient methods not true policy iteration and evaluation, but its made from pipes and the name sounds cool so we named it  as a shout out to earlier work.
+
 
 Reference
 ----------
