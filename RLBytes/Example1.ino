@@ -19,7 +19,7 @@ void setup()
 //                true);
 
 
-  newExperiment("PI_Primary", 
+  newExperiment("PD_Primary", 
                 "", 
                 0,
                 0,
@@ -27,15 +27,15 @@ void setup()
                 8,
                 8,
                 0.0003,
-                2, //seed
+                1, //seed
                 500,
                 64,
                 true);
 
 
   
-//  newExperiment("PD_Primary");
-//  markov_time = 20;
+//  newExperiment("PID_Primary");
+  markov_time = 20;
 
 //  loadExperiment("/Primary_Saved", 3);
 
@@ -105,13 +105,20 @@ void loop()
        Kp = Ku * 0.6f;
        Ti = Tu / 2.0f;
        Td = Tu / 8.0f;
+       Ki = Kp/Ti;
+       Kd = Kp*Td;
       } else if(ZN_type==1){ // PI controller
        Kp = Ku * 0.45f;
        Ti = Tu / 1.2f;
        Td = 0.0f;
-      } 
-      Ki = Kp/Ti;
-      Kd = Kp*Td;
+       Ki = Kp/Ti;
+       Kd = Kp*Td;
+      } else if(ZN_type==2){
+        Kp = Ku * 0.65f;
+        Ki = 0;
+        Kd = 0;
+      }
+
     StandardPID standPID(0.2, Kp, Ki, Kd);
 
     standPID.reset();

@@ -6,7 +6,6 @@ void ErrorMessageLoop(const char * message){
     Serial.println(message);
     delay(1000);
   }
-  
 }
 
 void robotBegin(){
@@ -71,14 +70,18 @@ void newExperiment(std::string env_name,
 
   }else if (env_name=="PD_Primary") {
     env = new PriEnv(env_name, 2, 1, step_limit);
+
+  }else if (env_name=="PID_Primary") {
+    env = new PriEnv(env_name, 3, 1, step_limit);
     
   } else if (env_name=="PVV_Primary") { //pitch pos, pitch vel, wheel vel
     env = new PriEnv(env_name, 3, 1, step_limit);
-
+  } else if (env_name=="Classic_Primary") { //pitch pos, pitch vel, cart pos, cart vel
+    env = new PriEnv(env_name, 4, 1, step_limit);
   } else if (env_name=="P_Secondary") {
     env = new SecEnv(env_name, 1, 1, step_limit, sub_env_folder, sub_env_iter, sub_repeats);
   } else {
-    ErrorMessageLoop("RLError invalid task name");
+    ErrorMessageLoop("Invalid task name see RLBytes.cpp");
   };
   
   agent = new Agent(

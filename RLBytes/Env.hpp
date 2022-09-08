@@ -37,6 +37,8 @@
 #define ENCR_A 38
 #define ENCR_B 33
 
+
+float m_prev_act = 0;
 Encoder encoderL = Encoder(ENCL_A, ENCL_B, 500);
 void doL1() {  encoderL.handleA(); }
 void doL2() {  encoderL.handleB(); }
@@ -106,6 +108,7 @@ public:
   float m_smooth_vel_ratio = 0.95;  // 0 is no smoothing
   
   float m_pitch = 0;
+  float m_gyro = 0;
   float m_pitch_vel = 0;
   float m_pitch_acc = 0;
   float m_lidarDis = 0;

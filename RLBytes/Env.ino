@@ -24,6 +24,9 @@ CoreEnv::CoreEnv(std::string task_name, uint16_t ob_size, uint16_t act_size, uin
     m_pri_ob_mode = 1;
   } else if (task_name=="PID_Secondary"){
     m_pri_ob_mode = 2;
+    
+  } else if (task_name=="Classic_Primary"){
+    m_pri_ob_mode = 5;
   } else {
     while(1){Serial.println("RL Error: invalid ob_mode, check task name, add to core constructor if new task");}
   }
@@ -63,6 +66,16 @@ void CoreEnv::markovStep(Eigen::VectorXf agent_act, int markovTime)
   } else {
     Serial.print("RL Error: agent act max is 2 actions, you have "); Serial.println(agent_act.size());
   }
+//  int sub_steps = 20;
+//  float dif_act = (agent_act[0] - m_prev_act);
+//
+//  for(int i=0; i<sub_steps; i++){
+//    float smoothed_act = m_prev_act + dif_act*float(i)/float(sub_steps);
+//    sendTorque(smoothed_act, smoothed_act);
+//    delay(1);
+//   }
+
+   m_prev_act = agent_act[0];
   delay(markovTime);
   m_step +=1;
   getOb(); // Get next observation, rewards and done
@@ -89,13 +102,18 @@ VectorXf CoreEnv::priOb(){
 
  // PD
   } else if (m_pri_ob_mode == 4){
-    tmp_ob[1] = priPID.D;
+    tmp_ob[1] = m_gyro*0.1; //priPID.D;
   
 
   // PVV
   } else if (m_pri_ob_mode == 3){
     tmp_ob[1] = m_pitch_vel;
     tmp_ob[2] = (m_vL-m_vR)*0.5f; // minus as they spin in oposite directions
+
+  } else if (m_pri_ob_mode == 5){
+    tmp_ob[1] = priPID.D; // m_pitch_vel;
+    tmp_ob[2] = (m_pL-m_pR)*0.5f; // minus as they spin in oposite directions
+    tmp_ob[3] = (m_vL-m_vR)*0.5f; // minus as they spin in oposite directions
   }
   
   return tmp_ob;
@@ -125,8 +143,11 @@ void CoreEnv::updatePitch()
   const float pitch_range = 30.0f;      // -30 to 30 degrees used for normalising the network inputs 
   const float sensor_correction = 4.0f; // correction angle degrees if sensor is out by a constant amount
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
+  imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
   m_pitch = (euler.z() - sensor_correction);
+  m_gyro = gyro.x();
+   
   m_pitch_vel = m_pitch - prev_pitch;
   m_pitch_acc = m_pitch_vel - prev_vel;
 

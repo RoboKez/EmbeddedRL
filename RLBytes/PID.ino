@@ -10,7 +10,7 @@ float StandardPID::update(float curPoint, float setPoint){
     I = (E + prevE) * timestep * 0.5f + prevI;
     D = (E - prevE) / timestep;
     if(D < -10.0f || D > 10.0f) D = 0;  // Fix for episode reset
-    D = constrain(D, -0.5, 0.5);
+//    D = constrain(D, -0.5, 0.5);
     I = constrain(I, -limI, limI);
 
     float output = kP*P + kI*I + kD*D;

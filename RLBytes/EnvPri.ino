@@ -20,8 +20,12 @@ void PriEnv::getOb()
   m_ob = priOb();  // Update ob depending on task (see CoreEnv)
 
   // Reward .........................................................................................
-//  m_reward = ((m_kill_angle/(m_kill_angle + abs(priPID.P)))-0.5f) * 0.01;
-m_reward = ((m_kill_angle/(m_kill_angle + abs(priPID.P)))) * 0.01;
+  m_reward = ((m_kill_angle/(m_kill_angle + abs(priPID.P)))-0.5f) * 0.01;
+//m_reward = ((m_kill_angle/(m_kill_angle + abs(priPID.P)))) * 0.01;
+
+//if(m_pri_ob_mode==5){
+//  m_reward += ((m_kill_angle/(m_kill_angle + abs(m_ob[2])))) * 0.01;
+//  }
 
 //  m_reward  = 0.01;
 
@@ -61,11 +65,17 @@ unsigned long PriEnv::episodeReset(bool manual_reset)
   }
 
    priPID.reset();
+
+   // A quick fix to save waiting for episode reset, assumes start conditions is its been stationary for a few seconds
+    if(m_pitch < 0){
+      priPID.I=priPID.limI;
+    } else {
+      priPID.I=-priPID.limI;
+    } 
    m_act[0] = 0;
    zeroWheelPos();
-
    
-  for(int i=0; i<10; i++){
+  for(int i=0; i<3; i++){
     markovStep(m_act,20);
   }
 
