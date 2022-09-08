@@ -40,10 +40,7 @@ void robotBegin(){
 }
 
 
-void newExperiment(std::string env_name, 
-                  std::string sub_env_folder, 
-                  int sub_env_iter, 
-                  int sub_repeats, 
+void newExperiment(std::string env_name,  
                   int step_limit, 
                   int h1, 
                   int h2, 
@@ -51,15 +48,20 @@ void newExperiment(std::string env_name,
                   int seed, 
                   int batch_size, 
                   int mini_batch_size, 
-                  bool adam){
+                  bool adam,
+                  std::string sub_env_folder, 
+                  int sub_env_iter, 
+                  int sub_repeats){
                     
-  // 0:P_Primary, 1:PI_Primary,  
+  // 0:P_Primary, 1:PI_Primary,
+  
+    
  
   delete agent;
   delete env;
   iteration = -1;
 
-  
+  if(minibatch_size > batch_size){batch_size = minibatch_size;}
   
 
   if (env_name=="P_Primary"){
@@ -83,6 +85,9 @@ void newExperiment(std::string env_name,
   } else {
     ErrorMessageLoop("Invalid task name see RLBytes.cpp");
   };
+
+  env->m_steps_in_danger_zone_limit = steps_in_danger_zone_limit;
+  env->m_kill_angle = kill_angle;
   
   agent = new Agent(
     env->getObSize(),
@@ -97,6 +102,11 @@ void newExperiment(std::string env_name,
     false, 
     adam 
   );
+
+  agent->m_standard_deviation = standard_deviation;
+  agent->m_min_standard_deviation = min_standard_deviation;
+  agent->m_anneal_rate = anneal_rate;
+    
   createDir(SD, env->m_folder);
 }
 
@@ -155,6 +165,10 @@ void saveInfo(){
   j[0]["value_probe"] = agent->vNet.m_probe;
   j[0]["policy_probe"] = agent->pNet.m_probe;
   j[0]["markov_time"] = markov_time;
+  j[0]["kill_angle"] = kill_angle;
+  j[0]["steps_in_danger_zone_limit"] = standard_deviation;
+  j[0]["min_standard_deviation"] = min_standard_deviation;
+  j[0]["anneal_rate"] = anneal_rate;
 
   std::string serializedObject = j.dump(4);
   writeFile(SD, xPath, serializedObject.c_str()); 
@@ -165,18 +179,17 @@ void iterReset(){
   clearAllPixels(false);
   setPixelNN(agent->pNet.m_probe, agent->vNet.m_probe);
   Serial.print("Iteration: "); Serial.println(iteration); 
-  iter_timestamp  = millis();
-  batch_cum       = 0;
-  batch_cum_det   = 0;
-  eps             = 0;
-  eps_det         = 0;
-  
+  iter_timestamp      = millis();
+  batch_cum           = 0;
+  batch_cum_det       = 0;
+  eps                 = 0;
+  eps_det             = 0;
   soc_manual_time     = 0;
   soc_wait_time       = 0;
   det_manual_time     = 0;
   det_wait_time       = 0;
-  train_time   = 0;
-  test_time    = 0;
-  learn_time   = 0;
-  iter_time       = 0;
+  train_time          = 0;
+  test_time           = 0;
+  learn_time          = 0;
+  iter_time           = 0;
 }

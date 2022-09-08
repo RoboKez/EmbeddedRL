@@ -10,12 +10,13 @@ void createDir(fs::FS &fs, const char * path){
         Serial.println("Dir created");
     } else {
       while(1){
+        
         Serial.println("mkdir failed");
         digitalWrite(LED_BUILTIN, LOW); 
         Serial.print(path);
         delay(1000);
-        }   
-    }
+      }   
+   }
 }
 
 void removeDir(fs::FS &fs, const char * path){
@@ -52,14 +53,15 @@ void writeFile(fs::FS &fs, const char * path, const char * message){
     Serial.printf("Writing file: %s\n", path);
 
     File file = fs.open(path, FILE_WRITE);
-    if(!file){
-      while(1){
+    while(!file){
         Serial.println("Failed to open file for writing");
         digitalWrite(LED_BUILTIN, LOW); 
+        file.close();
+        delay(200);
+        file = fs.open(path, FILE_WRITE);
         delay(1000);
-        }
-        return;
     }
+    digitalWrite(LED_BUILTIN, HIGH);
     if(file.print(message)){
         Serial.println("File written");
         

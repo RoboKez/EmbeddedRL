@@ -20,27 +20,31 @@ void PriEnv::getOb()
   m_ob = priOb();  // Update ob depending on task (see CoreEnv)
 
   // Reward .........................................................................................
-  m_reward = ((m_kill_angle/(m_kill_angle + abs(priPID.P)))-0.5f) * 0.01;
+  m_reward = ((1.0/(1.0 + abs(priPID.P)))) * 0.01;
+  
 //m_reward = ((m_kill_angle/(m_kill_angle + abs(priPID.P)))) * 0.01;
 
-//if(m_pri_ob_mode==5){
-//  m_reward += ((m_kill_angle/(m_kill_angle + abs(m_ob[2])))) * 0.01;
-//  }
+if(m_pri_ob_mode==5){
+  m_reward += ((m_kill_angle/(m_kill_angle + abs(m_ob[2])))) * 0.01;
+}
 
 //  m_reward  = 0.01;
 
 
   // Done  ..........................................................................................
   m_done = 0;
+  if (m_step >= m_step_limit-1){
+    m_done = 2;
+  }
+  
   if (abs(m_pri_true) > m_kill_angle){
     m_steps_in_danger_zone += 1;
+    m_reward = -0.01;
   }
   if (m_steps_in_danger_zone>m_steps_in_danger_zone_limit){
     m_done = 1; 
-//    m_reward = -0.01; 
-  } else if (m_step >= m_step_limit-1){
-    m_done = 2;
   }
+  
 
   m_episode_return += m_reward;  // just for logging
 }

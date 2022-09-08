@@ -12,11 +12,6 @@ int ZN_type = 0;
   float Ki;
   float Kd;
 
-
-  
-
-  
-
 struct StandardPID
 {
     float E, P, I, D, prevE, prevI, limI, kP, kI, kD;
@@ -25,5 +20,11 @@ struct StandardPID
     void reset();
     float update(float curPoint, float setPoint = 0); // all set prev and stiff
 };
+
+//
+//struct ZeiglerNicholsCalculator(bool control_type)
+//{
+//    float E, P, I, D, prevE, prevI, limI, kP, kI, kD;
+//};
 
 #endif // RLPID_H

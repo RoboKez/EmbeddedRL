@@ -1,41 +1,18 @@
 #include  "RLBytes.hpp"
 
-
 void setup() 
 {
-  
   robotBegin();
-//  newExperiment("P_Secondary", 
-//                "/P_Primary_seed1", 
-//                9,
-//                5,
-//                200,
-//                8,
-//                8,
-//                0.0003,
-//                1,
-//                500,
-//                64,
-//                true);
 
-
-  newExperiment("PD_Primary", 
-                "", 
-                0,
-                0,
-                200,
-                8,
-                8,
-                0.0003,
-                1, //seed
-                500,
-                64,
-                true);
-
-
-  
-//  newExperiment("PID_Primary");
-  markov_time = 20;
+  newExperiment(primary_env, 
+                step_limit,
+                h1_size,
+                h2_size,
+                lr,
+                seed,
+                batch_size,
+                minibatch_size,
+                adam);
 
 //  loadExperiment("/Primary_Saved", 3);
 
@@ -43,9 +20,10 @@ void setup()
 
 void loop() 
 {
-  if(rl) // PPO  ===========================================================================================================================
+  if(!control_mode) // PPO  ===========================================================================================================================
   {
-    iterReset(); // just used for logging
+    iterReset(); // Used for logging
+    
     // Test policy (deterministic) ---------------------------------------------------------------------------------------------------------
     env->m_pitch_inv = 1.0f;
     det_manual_time += env->episodeReset(manual_reset);
@@ -99,21 +77,29 @@ void loop()
 
 
   } else {  // Hardcoded Ziegler Nichols PID ===============================================================================================
-    ZN_type = 0;
-    markov_time = 10;
-    if(ZN_type==0){ // PID controller
+    //This is used for classic control model free benchmarking, note consider your markov time
+
+    if(control_mode==1){            // PID controller
        Kp = Ku * 0.6f;
        Ti = Tu / 2.0f;
        Td = Tu / 8.0f;
        Ki = Kp/Ti;
        Kd = Kp*Td;
-      } else if(ZN_type==1){ // PI controller
+       
+      } else if(control_mode==2){   // PD controller TODO Parameters NEEEDS CHANGING NO INTERNET
+       Kp = Ku * 0.45f;
+       Ti = 0.0f;
+       Td = Tu / 8.0f;
+       Ki = Kp/Ti;
+       
+      } else if(control_mode==3){   // PI controller
        Kp = Ku * 0.45f;
        Ti = Tu / 1.2f;
        Td = 0.0f;
        Ki = Kp/Ti;
        Kd = Kp*Td;
-      } else if(ZN_type==2){
+       
+      } else if(control_mode==3){   // P controller
         Kp = Ku * 0.65f;
         Ki = 0;
         Kd = 0;
@@ -124,7 +110,6 @@ void loop()
     standPID.reset();
     env->zeroWheelPos();
     while(1){
-      Serial.println(env->m_ob[0]);
       agent->m_act[0] =  standPID.update(env->m_pri_true, 0);
       env->markovStep(agent->m_act, markov_time);
     }

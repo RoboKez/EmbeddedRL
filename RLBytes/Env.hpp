@@ -1,7 +1,7 @@
 #ifndef ENV_H
 #define ENV_H
 #include "pid.hpp"
-//#include "NN.hpp"
+#include "parameters.h"
 /*
  *  `CoreEnv
  */
@@ -102,9 +102,9 @@ public:
   float m_sec_true = 0;
   float m_pri_set_point = 0;
   float m_sec_set_point = 0;
-  float m_kill_angle = 0.65;
+  float m_kill_angle = kill_angle;
   float m_steps_in_danger_zone;
-  float m_steps_in_danger_zone_limit = 10;
+  float m_steps_in_danger_zone_limit;
   float m_smooth_vel_ratio = 0.95;  // 0 is no smoothing
   
   float m_pitch = 0;

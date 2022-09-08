@@ -6,38 +6,41 @@ CoreEnv::CoreEnv(std::string task_name, uint16_t ob_size, uint16_t act_size, uin
 :m_name(task_name), m_ob_size(ob_size), m_act_size(act_size), m_step_limit(step_limit)
 {
     Serial.println(task_name.c_str());
+    Serial.println(sub_task_name.c_str());
 
-  
-  if(task_name=="P_Primary"){
-    m_pri_ob_mode = 0;
-  } else if (task_name=="PI_Primary"){
-    m_pri_ob_mode = 1;
-  } else if (task_name=="PID_Primary"){
-    m_pri_ob_mode = 2;
-  } else if (task_name=="PD_Primary"){
-    m_pri_ob_mode = 4;
-  } else if (task_name=="P_Secondary"){
-    m_pri_ob_mode = 0;
-  } else if (task_name=="PVV_Primary"){
-    m_pri_ob_mode = 3;
-  } else if (task_name=="PI_Secondary"){
-    m_pri_ob_mode = 1;
-  } else if (task_name=="PID_Secondary"){
-    m_pri_ob_mode = 2;
-    
-  } else if (task_name=="Classic_Primary"){
-    m_pri_ob_mode = 5;
-  } else {
-    while(1){Serial.println("RL Error: invalid ob_mode, check task name, add to core constructor if new task");}
-  }
-  
-  if (task_name=="P_Secondary"){
-    m_sec_ob_mode = 0;
-  } else if (task_name=="PI_Secondary"){
-    m_sec_ob_mode = 1;
-  } else if (task_name=="PID_Secondary"){
-    m_sec_ob_mode = 2;
-  }
+    if(task_name == "P_Primary"){
+      m_pri_ob_mode = 0;
+    } else if (task_name == "PI_Primary"){
+      m_pri_ob_mode = 1;
+    } else if (task_name == "PID_Primary"){
+      m_pri_ob_mode = 2;
+    } else if (task_name == "PVV_Primary"){
+      m_pri_ob_mode = 3;
+    } else if (task_name == "PD_Primary"){
+      m_pri_ob_mode = 4;
+    } else if (task_name == "Classic_Primary"){
+      m_pri_ob_mode = 5;
+    } else if (task_name == "P_Secondary"){
+      m_sec_ob_mode = 0;
+    } else if (task_name == "PI_Secondary"){
+      m_sec_ob_mode = 1;
+    } else if (task_name == "PID_Secondary"){
+      m_sec_ob_mode = 2;
+    } else {
+      while(1){Serial.println("RL Error: invalid ob mode, check task name or add to core Env constructor if new task");}
+    }
+
+    if (sub_task_name=="P_Primary"){
+      m_pri_ob_mode = 0;
+    } else if (sub_task_name=="PI_Primary"){
+      m_pri_ob_mode = 1;
+    } else if (sub_task_name=="PID_Primary"){
+      m_pri_ob_mode = 2;
+    } else if (sub_task_name==""){
+      Serial.println("Non hieracical");
+    } else {
+      while(1){Serial.println("RL Error: invalid hieracical ob mode, check task name or add to core Env constructor if new task");}
+    }
   
   m_ob = Eigen::VectorXf(ob_size);
   m_act = Eigen::VectorXf(act_size);
@@ -59,21 +62,22 @@ CoreEnv::~CoreEnv()
 // Step ----------------------------------------------------------------------------------------------
 void CoreEnv::markovStep(Eigen::VectorXf agent_act, int markovTime)
 {
-  if(agent_act.size() == 1){
-    sendTorque(agent_act[0], agent_act[0]);
-  } else if (agent_act.size() == 2) {
-    sendTorque(agent_act[0], agent_act[1]);
+
+
+  if(smoothed_action){
+    int sub_steps = 20;
+    float dif_act = (agent_act[0] - m_prev_act);
+    for(int i=0; i<sub_steps; i++){
+      float smoothed_act = m_prev_act + dif_act*float(i)/float(sub_steps);
+      sendTorque(smoothed_act, smoothed_act);
+      delay(1);
+     }
   } else {
-    Serial.print("RL Error: agent act max is 2 actions, you have "); Serial.println(agent_act.size());
+    if(agent_act.size() == 1){sendTorque(agent_act[0], agent_act[0]);} 
+    else if (agent_act.size() == 2) {sendTorque(agent_act[0], agent_act[1]);} 
+    else {Serial.print("RL Error: agent act max is 2 actions, you have "); Serial.println(agent_act.size());
+    }
   }
-//  int sub_steps = 20;
-//  float dif_act = (agent_act[0] - m_prev_act);
-//
-//  for(int i=0; i<sub_steps; i++){
-//    float smoothed_act = m_prev_act + dif_act*float(i)/float(sub_steps);
-//    sendTorque(smoothed_act, smoothed_act);
-//    delay(1);
-//   }
 
    m_prev_act = agent_act[0];
   delay(markovTime);
@@ -102,7 +106,7 @@ VectorXf CoreEnv::priOb(){
 
  // PD
   } else if (m_pri_ob_mode == 4){
-    tmp_ob[1] = m_gyro*0.1; //priPID.D;
+    tmp_ob[1] = m_gyro*0.01; //priPID.D;
   
 
   // PVV
@@ -110,10 +114,11 @@ VectorXf CoreEnv::priOb(){
     tmp_ob[1] = m_pitch_vel;
     tmp_ob[2] = (m_vL-m_vR)*0.5f; // minus as they spin in oposite directions
 
+  // Classic
   } else if (m_pri_ob_mode == 5){
-    tmp_ob[1] = priPID.D; // m_pitch_vel;
-    tmp_ob[2] = (m_pL-m_pR)*0.5f; // minus as they spin in oposite directions
-    tmp_ob[3] = (m_vL-m_vR)*0.5f; // minus as they spin in oposite directions
+    tmp_ob[1] = m_gyro*0.01; // priPID.D; // m_pitch_vel;
+    tmp_ob[2] = (m_pL-m_pR)*0.1f; // minus as they spin in oposite directions
+    tmp_ob[3] = (m_vL-m_vR)*0.1f; // minus as they spin in oposite directions
   }
   
   return tmp_ob;
@@ -460,8 +465,7 @@ void setPixelNN(VectorXf nnP, VectorXf nnV, bool normaliseV){
         setPixel(grid_id, v, false);
        } else {
         setPixel(grid_id, nnV[nn_id], false);
-       }
-       
+       } 
     }
   }
 //  setPixel(7, -1, false);
