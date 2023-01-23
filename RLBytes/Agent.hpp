@@ -49,6 +49,8 @@ public:
     // Actor mean output and action sample
     Eigen::VectorXf m_mu  = Eigen::VectorXf(m_act_size);
     Eigen::VectorXf m_act = Eigen::VectorXf(m_act_size);
+    Eigen::VectorXf m_act_prev = Eigen::VectorXf::Zero(m_act_size); // only used for PPO Smoothing Action Space
+    
     Eigen::VectorXf m_ob = Eigen::VectorXf(m_in_size);
     
     
@@ -88,7 +90,7 @@ public:
 
    void AssignElements();
     
-    void ForwardPropagate(Eigen::VectorXf env_ob);
+    void ForwardPropagate(Eigen::VectorXf env_ob, int pposas=false); //false disabled, if true smoother action transition with effecting POMDP;
     
     float GaussianLikelihood1D(float mu, float sigma, float x);
     

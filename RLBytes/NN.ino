@@ -253,7 +253,7 @@ void NeuralNetwork::PrintWeights(){
     }
   }
 
-  Serial.println("W3---------------------------------");
+  Serial.println("\nW3---------------------------------");
   for(std::uint16_t i=0; i<m_out_size; ++i){
     Serial.println();
     for(std::uint16_t ii=0; ii<m_h2_size; ++ii){
@@ -261,6 +261,8 @@ void NeuralNetwork::PrintWeights(){
       Serial.print('\t');
     }
   }
+
+  Serial.print("ob size print" ); Serial.println(m_in_size);
 }
 
 // Save --------------------------------------------------------------------------------------------
@@ -332,6 +334,12 @@ void NeuralNetwork::LoadNetworkSD(const char * folder, const int iter, const cha
   m_out_size = j[0]["W3"].size();
   m_h1_size  = j[0]["W1"].size();
   m_h2_size  = j[0]["W2"].size();
+
+  m_in = VectorXf(m_in_size);
+  m_out  = VectorXf(m_out_size);
+  m_in.setZero(m_in_size);
+  m_out.setZero(m_out_size);
+  Serial.print("ob size" ); Serial.println(m_in_size);
 }
 
 
@@ -345,6 +353,10 @@ void NeuralNetwork::ProbeNetwork(){
   const float rangeY =  maxY - minY;
 //  float yVal = minX;
 //  float xVal = minY;
+
+ for(int x=0; x < m_in_size; x++){
+    m_in[x] = 0.0;  // ensure conditioned on zero for other dimentions
+ }
   
   for(int x=0; x < 7; x++){
     const float xVal = (float(x)/3.0f-1.0f);

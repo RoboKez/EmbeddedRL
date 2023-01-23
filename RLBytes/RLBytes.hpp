@@ -46,6 +46,9 @@ CoreEnv *env = nullptr;
 
 void loadInfo(const char * folder, int iter);
 void saveInfo();
+void saveLog(Eigen::VectorXf &a, Eigen::VectorXf &b, Eigen::VectorXf &c, Eigen::VectorXf &d, Eigen::VectorXf &e);
+
+
 void newExperiment(std::string env_name = "P_Primary",   
                     int step_limit = 600, 
                     int h1 = 8, 
@@ -59,7 +62,7 @@ void newExperiment(std::string env_name = "P_Primary",
                     int sub_env_iter = 0, 
                     int sub_repeats = 5);
                     
-void loadExperiment(const char * folder, int iter);
+void loadExperiment(const char * folder, int iter, std::string subfolder="", int subiter=0);
 void iterReset(); 
 void ErrorMessageLoop(const char * message);
 

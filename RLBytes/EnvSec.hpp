@@ -6,6 +6,7 @@
 class SecEnv:public CoreEnv
 {
 public:
+  float prev_pos = 0;
   float m_kill_speed = 2.0;
   float m_steps_in_danger_zone_limit_sec = 5;
   float m_steps_in_danger_zone_sec;

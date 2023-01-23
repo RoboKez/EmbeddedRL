@@ -1,5 +1,21 @@
 #include "RLBytes.hpp"
 
+// Bluethooth stuff ==========================================================================
+#include <esp_now.h>
+#include <WiFi.h>
+typedef struct struct_message_in {
+  byte actY;
+  byte actX;
+  bool actL;
+  bool actR;
+} struct_message_in;
+struct_message_in incomingReadings;
+
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&incomingReadings, incomingData, sizeof(incomingReadings));
+}
+//--------------------------------------------------------------------------------------------
+
 void ErrorMessageLoop(const char * message){
   while(1){
     Serial.print("RL Error: ");
@@ -18,10 +34,19 @@ void robotBegin(){
   onboard_strip.setBrightness(20); // 10 min 100 max
   matricies_strip.show();  // Turn all LEDs off ASAP
   onboard_strip.show();  // Turn all LEDs off ASAP
-  encoderL.init();
-  encoderL.enableInterrupts(doL1, doL2);
-  encoderR.init();
-  encoderR.enableInterrupts(doR1, doR2);
+//  encoderL.init();
+//  encoderL.enableInterrupts(doL1, doL2);
+//  encoderR.init();
+//  encoderR.enableInterrupts(doR1, doR2);
+  pinMode(ENCL_A, INPUT_PULLUP); 
+  pinMode(ENCL_B, INPUT_PULLUP);
+  attachInterrupt(ENCL_A, updateL, CHANGE);
+  attachInterrupt(ENCL_B, updateL, CHANGE);
+
+  pinMode(ENCR_A, INPUT_PULLUP); 
+  pinMode(ENCR_B, INPUT_PULLUP);
+  attachInterrupt(ENCR_A, updateR, CHANGE);
+  attachInterrupt(ENCR_B, updateR, CHANGE);
   delay(1000);
   i2c_devices_found();
   if(!bno.begin()){ErrorMessageLoop("No BNO055 detected");}
@@ -36,6 +61,34 @@ void robotBegin(){
     Serial.println("SD successfully initialised");
   }
   delay(1000);
+  // ============espnow==============================
+  Serial.println("espnow setup");
+   // Init ESP-NOW
+  WiFi.mode(WIFI_STA);
+  while (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    delay(1000);
+  }
+
+  
+//  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+//  peerInfo.channel = 0;
+//  peerInfo.encrypt = false;
+//  while (esp_now_add_peer(&peerInfo) != ESP_OK) {
+//    Serial.println("Failed robot to add peer");
+//    delay(1000);
+//  }
+  esp_now_register_recv_cb(OnDataRecv);
+  Serial.println("esp set up"); 
+  delay(10);
+
+  incomingReadings.actY=127;
+  incomingReadings.actX=127;
+  incomingReadings.actL=1;
+  incomingReadings.actR=1;
+//  // ===============================================
+
+  
   setEyes(1);
 }
 
@@ -75,13 +128,18 @@ void newExperiment(std::string env_name,
 
   }else if (env_name=="PID_Primary") {
     env = new PriEnv(env_name, 3, 1, step_limit);
+
+  }else if (env_name=="ClassicA_Primary") {
+    env = new PriEnv(env_name, 5, 1, step_limit);
     
-  } else if (env_name=="PVV_Primary") { //pitch pos, pitch vel, wheel vel
-    env = new PriEnv(env_name, 3, 1, step_limit);
+  } else if (env_name=="PVPV_Primary") { //pitch pos, pitch vel, wheel pos(left), wheel vel
+    env = new PriEnv(env_name, 4, 1, step_limit);
   } else if (env_name=="Classic_Primary") { //pitch pos, pitch vel, cart pos, cart vel
     env = new PriEnv(env_name, 4, 1, step_limit);
   } else if (env_name=="P_Secondary") {
     env = new SecEnv(env_name, 1, 1, step_limit, sub_env_folder, sub_env_iter, sub_repeats);
+  } else if (env_name=="PD_Secondary") {
+    env = new SecEnv(env_name, 2, 1, step_limit, sub_env_folder, sub_env_iter, sub_repeats);
   } else {
     ErrorMessageLoop("Invalid task name see RLBytes.cpp");
   };
@@ -110,7 +168,7 @@ void newExperiment(std::string env_name,
   createDir(SD, env->m_folder);
 }
 
-void loadExperiment(const char * folder, int iter){
+void loadExperiment(const char * folder, int iter, std::string subfolder, int subiter){
   // Ensure SD set up prior to running 
   char file[100] = "/info_";
   char str_iter[5];
@@ -128,8 +186,10 @@ void loadExperiment(const char * folder, int iter){
   std::string tmpname = j[0]["env"].get<std::string>();
   Serial.println(tmpname.c_str());
   const char * a = tmpname.c_str();
-  newExperiment(a, j[0]["step_limit"], j[0]["h1_size"], j[0]["h2_size"], j[0]["lr"], j[0]["seed"], j[0]["desired_batch_size"], j[0]["minibatch_size"], j[0]["adam"]);
+  newExperiment(a, j[0]["step_limit"], j[0]["h1_size"], j[0]["h2_size"], j[0]["lr"], j[0]["seed"], j[0]["desired_batch_size"], j[0]["minibatch_size"], j[0]["adam"], subfolder, subiter);
   agent->LoadNetworkSD(folder, iter);
+  iteration = j[0]["ID"];
+  total_training_steps = j[0]["total_training_steps"];
 }
 
 void saveInfo(){
@@ -168,8 +228,35 @@ void saveInfo(){
   j[0]["kill_angle"] = kill_angle;
   j[0]["steps_in_danger_zone_limit"] = standard_deviation;
   j[0]["min_standard_deviation"] = min_standard_deviation;
-  j[0]["anneal_rate"] = anneal_rate;
+  j[0]["logrp"] = env->m_logrp;
+  j[0]["logrc"] = env->m_logrc;
+  j[0]["batch_eps"] = eps;
+//  j[0]["logrk"] = env->m_logrk;
+  j[0]["manual_time"] = soc_manual_time;
 
+  std::string serializedObject = j.dump(4);
+  writeFile(SD, xPath, serializedObject.c_str()); 
+}
+
+void saveLog(Eigen::VectorXf &a, Eigen::VectorXf &b, Eigen::VectorXf &c, Eigen::VectorXf &d, Eigen::VectorXf &e){
+  
+  char file[100] = "logpitch";
+  char str_iter[5];
+  sprintf(str_iter, "%d", iteration);
+  char xPath[100];
+  strcpy(xPath, env->m_folder);
+  strcat(xPath, file);
+  strcat(xPath, ".json");
+  
+  nlohmann::json j;
+  j = nlohmann::json::parse(R"([])");
+
+  j[0]["pitch_log"] = a;
+j[0]["act_log"] = b;
+ j[0]["pitch_D_log"] = c;
+ j[0]["pitch_I_log"] = d;
+ j[0]["rew_log_pitch"] = e;
+  
   std::string serializedObject = j.dump(4);
   writeFile(SD, xPath, serializedObject.c_str()); 
 }
@@ -177,7 +264,7 @@ void saveInfo(){
 void iterReset(){
   iteration += 1;
   clearAllPixels(false);
-  setPixelNN(agent->pNet.m_probe, agent->vNet.m_probe);
+  setPixelNN(agent->pNet.m_probe, agent->vNet.m_probe, false);
   Serial.print("Iteration: "); Serial.println(iteration); 
   iter_timestamp      = millis();
   batch_cum           = 0;
@@ -192,4 +279,26 @@ void iterReset(){
   test_time           = 0;
   learn_time          = 0;
   iter_time           = 0;
+}
+
+void updateL(){ 
+  char tickA = digitalRead(ENCL_A);
+  char tickB = digitalRead(ENCL_B);
+  if(tickA != tickL){
+    if(tickA != tickB){countL += tickA;
+    } else {countL -= tickA;}
+    tickL = tickA;
+  }
+//  posL = countL/500.0f*6.28318530718;
+}
+
+void updateR(){ 
+  char tickA = digitalRead(ENCR_A);
+  char tickB = digitalRead(ENCR_B);
+  if(tickA != tickR){
+    if(tickA != tickB){countR += tickA;
+    } else {countR -= tickA;}
+    tickR = tickA;
+  }
+//  posR = countR/500.0f*6.28318530718;
 }

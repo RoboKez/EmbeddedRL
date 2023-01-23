@@ -66,7 +66,7 @@ pNet(
              }
 
 // Forward -----------------------------------------------------------------------------------------
-void Agent::ForwardPropagate(VectorXf env_ob){
+void Agent::ForwardPropagate(VectorXf env_ob, int pposas){
     m_ob = env_ob;
     
     // Value Model prediction
@@ -86,7 +86,15 @@ void Agent::ForwardPropagate(VectorXf env_ob){
         m_act(i) = distribution(m_generator);
     }
 
-    // TODO: SMOOTH ACTION wWITH PREVIOUS HERE IF REAL WORLD
+    // PPOSAS ========================================
+// This needs to be disabled for updating only in traing is it to be used 
+    if (pposas==true){
+      for(std::uint16_t i=0; i<m_act_size; ++i){
+        m_act(i) = (m_act(i) + m_act_prev(i))*0.5f;
+      }
+    }
+    m_act_prev = m_act;
+    //===============================================
     
     
     // Find gaussian log likelihood of m_act

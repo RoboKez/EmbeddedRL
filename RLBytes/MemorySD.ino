@@ -6,21 +6,20 @@
 
 void createDir(fs::FS &fs, const char * path){
     Serial.printf("Creating Dir: %s\n", path);
-    if(fs.mkdir(path)){
-        Serial.println("Dir created");
-    } else {
-      while(1){
-        
-        Serial.println("mkdir failed");
+    
+    while(!fs.mkdir(path)){
+      Serial.println("mkdir failed");
         digitalWrite(LED_BUILTIN, LOW); 
         Serial.print(path);
         delay(1000);
-      }   
-   }
+    } 
+    Serial.println("Dir created");
+    digitalWrite(LED_BUILTIN, HIGH);
 }
 
 void removeDir(fs::FS &fs, const char * path){
     Serial.printf("Removing Dir: %s\n", path);
+
     if(fs.rmdir(path)){
         Serial.println("Dir removed");
     } else {
@@ -37,6 +36,7 @@ nlohmann::json readJsonFile(fs::FS &fs, const char * path){
         digitalWrite(LED_BUILTIN, LOW);
 
         Serial.println("RL error: Failed to open file for reading, is the sd card in?");
+        Serial.println(path);
         file.close();
         delay(200);
         file = fs.open(path);

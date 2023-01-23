@@ -14,33 +14,47 @@ CoreEnv::CoreEnv(std::string task_name, uint16_t ob_size, uint16_t act_size, uin
       m_pri_ob_mode = 1;
     } else if (task_name == "PID_Primary"){
       m_pri_ob_mode = 2;
-    } else if (task_name == "PVV_Primary"){
+    } else if (task_name == "PVPV_Primary"){
       m_pri_ob_mode = 3;
     } else if (task_name == "PD_Primary"){
       m_pri_ob_mode = 4;
     } else if (task_name == "Classic_Primary"){
       m_pri_ob_mode = 5;
+    } else if (task_name == "ClassicA_Primary"){
+      m_pri_ob_mode = 6;
+      
     } else if (task_name == "P_Secondary"){
       m_sec_ob_mode = 0;
     } else if (task_name == "PI_Secondary"){
       m_sec_ob_mode = 1;
     } else if (task_name == "PID_Secondary"){
       m_sec_ob_mode = 2;
+    } else if (task_name == "PD_Secondary"){
+      m_sec_ob_mode = 4;
     } else {
       while(1){Serial.println("RL Error: invalid ob mode, check task name or add to core Env constructor if new task");}
     }
 
-    if (sub_task_name=="P_Primary"){
+    m_pri_ob_size = m_ob_size;
+
+    if (sub_task_name=="/P_Sub"){
       m_pri_ob_mode = 0;
-    } else if (sub_task_name=="PI_Primary"){
+      m_pri_ob_size = 1;
+    } else if (sub_task_name=="/PI_Sub"){
       m_pri_ob_mode = 1;
-    } else if (sub_task_name=="PID_Primary"){
+      m_pri_ob_size = 2;
+    } else if (sub_task_name=="/PID_Sub"){
       m_pri_ob_mode = 2;
+      m_pri_ob_size = 3;
+    } else if (sub_task_name == "/PD_Sub"){
+      m_pri_ob_mode = 4;
+      m_pri_ob_size = 2;
     } else if (sub_task_name==""){
       Serial.println("Non hieracical");
     } else {
-      while(1){Serial.println("RL Error: invalid hieracical ob mode, check task name or add to core Env constructor if new task");}
+      while(1){Serial.println("RL Error: invalid hieracical ob mode, check task name or add to core Env constructor if new task"); Serial.println(sub_task_name.c_str()); delay(1000);}
     }
+    Serial.print("ob mode"); Serial.println(m_pri_ob_mode);
   
   m_ob = Eigen::VectorXf(ob_size);
   m_act = Eigen::VectorXf(act_size);
@@ -65,15 +79,15 @@ void CoreEnv::markovStep(Eigen::VectorXf agent_act, int markovTime)
 
 
   if(smoothed_action){
-    int sub_steps = 20;
+    int sub_steps = markovTime;
     float dif_act = (agent_act[0] - m_prev_act);
     for(int i=0; i<sub_steps; i++){
       float smoothed_act = m_prev_act + dif_act*float(i)/float(sub_steps);
-      sendTorque(smoothed_act, smoothed_act);
+      sendTorque(smoothed_act+turn, smoothed_act-turn);
       delay(1);
      }
   } else {
-    if(agent_act.size() == 1){sendTorque(agent_act[0], agent_act[0]);} 
+    if(agent_act.size() == 1){sendTorque(agent_act[0]+turn, agent_act[0]-turn);} 
     else if (agent_act.size() == 2) {sendTorque(agent_act[0], agent_act[1]);} 
     else {Serial.print("RL Error: agent act max is 2 actions, you have "); Serial.println(agent_act.size());
     }
@@ -90,7 +104,8 @@ VectorXf CoreEnv::priOb(){
   updatePitch();
   updateWheels();
   priPID.update(m_pri_true, m_pri_set_point);
-  VectorXf tmp_ob = VectorXf(m_ob_size);
+  secPID.update(m_sec_true, m_sec_set_point);
+  VectorXf tmp_ob = VectorXf(m_pri_ob_size);
   
   // P
   tmp_ob[0] = priPID.P;  // this is just m_pri_true - m_pri_set_point
@@ -101,31 +116,40 @@ VectorXf CoreEnv::priOb(){
 
   // PID
   } else if (m_pri_ob_mode == 2){
-    tmp_ob[1] = priPID.I;
-    tmp_ob[2] = priPID.D;
+    tmp_ob[1] = m_gyro*0.01; //priPID.D*0.1;
+    tmp_ob[2] = priPID.I;
 
  // PD
   } else if (m_pri_ob_mode == 4){
-    tmp_ob[1] = m_gyro*0.01; //priPID.D;
+    tmp_ob[1] = m_gyro*0.01;// priPID.D*0.1;  // normalise input dependant of freqency  // m_gyro*0.01; //priPID.D;
+//    tmp_ob[1] = priPID.D*0.1;
   
 
-  // PVV
+  // PVPV
   } else if (m_pri_ob_mode == 3){
-    tmp_ob[1] = m_pitch_vel;
-    tmp_ob[2] = (m_vL-m_vR)*0.5f; // minus as they spin in oposite directions
+    tmp_ob[1] = m_gyro*0.01;// m_pitch_vel;
+    tmp_ob[2] = m_cur_cart_pos;  //add in or minus right
+    tmp_ob[3] = m_cart_vel;
 
   // Classic
   } else if (m_pri_ob_mode == 5){
-    tmp_ob[1] = m_gyro*0.01; // priPID.D; // m_pitch_vel;
-    tmp_ob[2] = (m_pL-m_pR)*0.1f; // minus as they spin in oposite directions
-    tmp_ob[3] = (m_vL-m_vR)*0.1f; // minus as they spin in oposite directions
+    tmp_ob[1] = m_gyro*0.01;// m_pitch_vel;
+    tmp_ob[2] = secPID.P; //m_cur_cart_pos/6.284; //1=full rotation //add in or minus right
+    tmp_ob[3] = m_cart_vel;
+
+  // Classic and Previous Action
+  } else if (m_pri_ob_mode == 6){
+    tmp_ob[1] = m_gyro*0.01;// m_pitch_vel;
+    tmp_ob[2] = secPID.P; //m_cur_cart_pos/6.284; //1=full rotation //add in or minus right
+    tmp_ob[3] = m_cart_vel;
+    tmp_ob[4] = m_prev_act; // assumes 1d action space
   }
   
   return tmp_ob;
 }
 
 VectorXf CoreEnv::secOb(){
-  updateLidar();
+//  updateLidar();
 //  m_sec_true = 1.0f - m_lidarDis/127.5f;  // scale between -1 and 1
 //  m_sec_true = 1.0f - m_lidarAng/11.5;  // scale between -1 and 1
   secPID.update(m_sec_true, m_sec_set_point);
@@ -133,6 +157,11 @@ VectorXf CoreEnv::secOb(){
   
   // P
   tmp_ob[0] = secPID.P;  // this is just m_pri_true - m_pri_set_point
+
+  // PD
+  if (m_pri_ob_mode == 4){
+    tmp_ob[1] = priPID.D;
+  }
   
   return tmp_ob;
 }
@@ -146,7 +175,7 @@ void CoreEnv::updatePitch()
   const float prev_vel = m_pitch_vel;
   
   const float pitch_range = 30.0f;      // -30 to 30 degrees used for normalising the network inputs 
-  const float sensor_correction = 4.0f; // correction angle degrees if sensor is out by a constant amount
+  const float sensor_correction = 3.0f; // correction angle degrees if sensor is out by a constant amount
   imu::Vector<3> euler = bno.getVector(Adafruit_BNO055::VECTOR_EULER);
   imu::Vector<3> gyro = bno.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
 
@@ -170,24 +199,38 @@ void CoreEnv::updatePitch()
 void CoreEnv::updateWheels()
 {
 
-  encoderL.update();
-  encoderR.update();
+//  encoderL.update();
+//  encoderR.update();
   float prev_vL = m_vL;
   float prev_vR = m_vR;
 
-  m_pL = encoderL.getAngle() - m_pL_Start;
-  m_pR = encoderR.getAngle() - m_pR_Start;
+//  m_pL = encoderL.getAngle() - m_pL_Start;
+//  m_pR = encoderR.getAngle() - m_pR_Start;
+posL = countL/500.0f*6.28318530718; 
+  posR = countR/500.0f*6.28318530718;
+ m_pL = posL - m_pL_Start;
+m_pR = posR - m_pR_Start;
+//  Serial.print(m_pL);
+//  Serial.print('\t');
+//  Serial.print(m_pR);
+//  Serial.print('\t');
+//  Serial.println(m_pL - m_pR);
   
-  m_vL = encoderL.getVelocity();
-  m_vR = encoderR.getVelocity();
+//  m_vL = encoderL.getVelocity();
+//  m_vR = encoderR.getVelocity();
+//  m_vL = posL;
+//  m_vR = posR;
   
-  m_aL = m_vL - prev_vL;
-  m_aR = m_vR - prev_vR;
 
-  m_sec_true = (m_vL - m_vR) * 0.05f;
+//  m_sec_true = (m_vL - m_vR) * 0.05f;
 
-//  m_sec_true = (m_pL - m_pR) * 0.5f;
-
+  float tmp_prev = m_prev_cart_pos;
+  m_prev_cart_pos = m_cur_cart_pos;
+//  m_cur_cart_pos = ((m_pL - m_pR) * 0.5f +  0.0174533*env->m_pitch) - m_ang_Start; //*0.5 + 0.5*tmp_prev;
+m_cur_cart_pos = ((m_pL + m_pR) * 0.5f +  0.0174533*env->m_pitch) - m_ang_Start; //*0.5 + 0.5*tmp_prev;
+//  Serial.println(m_cur_cart_pos);
+  m_cart_vel = (m_prev_cart_pos - m_cur_cart_pos)*10.0f; 
+  m_sec_true = -m_cur_cart_pos/6.284; 
 //   Serial.print("Wheel pos\t"); Serial.print(m_pL); Serial.print('\t'); Serial.println(m_pR);
 //   Serial.print("Wheel vel\t"); Serial.print(m_vL); Serial.print('\t'); Serial.println(m_vR);
 //   Serial.print("Wheel acc\t"); Serial.print(m_aL); Serial.print('\t'); Serial.println(m_aR);
@@ -201,13 +244,19 @@ void CoreEnv::updateWheels()
 
 void CoreEnv::zeroWheelPos()
 {
-  encoderL.update();
-  encoderR.update();
+//  encoderL.update();
+//  encoderR.update();
+//  m_pL_Start = encoderL.getAngle();
+//  m_pR_Start = encoderR.getAngle();
+  posL = countL/500.0f*6.28318530718; 
+  posR = countR/500.0f*6.28318530718;
+
+  m_pL_Start = posL;
+  m_pR_Start = posR;
   
-  m_pL_Start = encoderL.getAngle();
-  m_pR_Start = encoderR.getAngle();
   m_vL = 0;
   m_vR = 0;
+  m_cur_cart_pos = 0;
   Serial.println("Wheel positions zeroed");
 }
 
@@ -221,8 +270,6 @@ void CoreEnv::updateLidar()
   bytes_recieved = Wire.readBytes(pos_, bytes_requested);
   m_lidarDis = float(pos_[1]);
   m_lidarAng = float(pos_[0]);
-
-  Serial.print(m_lidarDis);
 }
 
 // I2C Scan ---------------------------------------------------------------------------------------------
@@ -285,8 +332,8 @@ bool i2c_devices_found()
 // sendTorque ===========================================================================================
 void sendTorque(float left, float right)
 {
-  left = max(min(left, 1.0f), -1.0f);
-  right = max(min(right, 1.0f), -1.0f);
+  left = max(min(left, 0.8f), -0.8f);
+  right = max(min(right, 0.8f), -0.8f);
 
   byte left_byte  = byte( left * 127.5f + 127.5f);
   byte right_byte  = byte( right * 127.5f + 127.5f);

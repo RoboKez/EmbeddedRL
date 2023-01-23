@@ -7,15 +7,14 @@
  */
 
 #include <ArduinoEigen.h>
-#include <WiFi.h>
-#include <SimpleFOC.h>
+//#include <SimpleFOC.h>
 #include <Wire.h>
 #include <Adafruit_DotStar.h>
 #include <APA102.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_BNO055.h>
 #include <utility/imumaths.h>
-#include <esp_now.h>
+
 
 #define LED_BUILTIN         13
 #define NUMPIXELS_ONBOARD   1 
@@ -34,18 +33,23 @@
 
 #define ENCL_A 11
 #define ENCL_B 10
-#define ENCR_A 38
-#define ENCR_B 33
-
+#define ENCR_A 33
+#define ENCR_B 38
+int countL = 0;
+char tickL = 0;
+float posL = 0;
+int countR = 0;
+char tickR = 0;
+float posR = 0;
 
 float m_prev_act = 0;
-Encoder encoderL = Encoder(ENCL_A, ENCL_B, 500);
-void doL1() {  encoderL.handleA(); }
-void doL2() {  encoderL.handleB(); }
-
-Encoder encoderR = Encoder(ENCR_A, ENCR_B, 500);
-void doR1() {  encoderR.handleA(); }
-void doR2() {  encoderR.handleB(); }
+//Encoder encoderL = Encoder(ENCL_A, ENCL_B, 500);
+//void doL1() {  encoderL.handleA(); }
+//void doL2() {  encoderL.handleB(); }
+//
+//Encoder encoderR = Encoder(ENCR_A, ENCR_B, 500);
+//void doR1() {  encoderR.handleA(); }
+//void doR2() {  encoderR.handleB(); }
 
 Adafruit_DotStar onboard_strip(NUMPIXELS_ONBOARD, DATAPIN_ONBOARD, CLOCKPIN_ONBOARD, DOTSTAR_BRG);
 Adafruit_DotStar matricies_strip(NUMPIXELS_MATRICIES, DATAPIN_MATRICIES, CLOCKPIN_MATRICIES, DOTSTAR_BRG);
@@ -97,7 +101,8 @@ public:
   float m_episode_return;
   int m_pri_ob_mode;
   int m_sec_ob_mode;
-  
+
+  float m_last_ang = 1.0;
   float m_pri_true = 0;
   float m_sec_true = 0;
   float m_pri_set_point = 0;
@@ -114,6 +119,7 @@ public:
   float m_lidarDis = 0;
   float m_lidarAng = 0; 
 
+  float m_ang_Start = 0;
   float m_pL_Start = 0;
   float m_pR_Start = 0;
   float m_pL = 0;
@@ -122,11 +128,26 @@ public:
   float m_vR = 0;
   float m_aL = 0;
   float m_aR = 0;
+
+  float m_logrp = 0;
+  float m_logrc = 0;
+  float m_logrk = 0;
+
+
+
+  float m_prev_cart_pos = 0;
+  float m_cur_cart_pos = 0;
+  float m_cart_vel = 0;
   
   float m_pitch_inv = 1.0f; 
 
+  int m_pri_ob_size = 0;
 
+  float m_wheel_tick=0;
 protected:
+
+  volatile long wheel_timestamp;
+  volatile long prev_wheel_timestamp;
   CoreEnv(std::string task_name, uint16_t ob_size, uint16_t act_size, uint16_t step_limit, std::string sub_task_name="");
   StandardPID priPID = NULL;
   StandardPID secPID = NULL;
